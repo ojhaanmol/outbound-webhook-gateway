@@ -17,21 +17,28 @@ class RegisterListner{
     }
     
     async registerUrlForServiceName(serviceName: ServiceName, authToken: AuthTokenRecived, uri: ListnerUrl){
+
+        try {
+                
+            this.debug.register('serviceName', new RegistringServiceName(serviceName).serviceName);
+            const {user, password}= this.getAuthToken( authToken );
+
+            const url= this.getUrl(uri);
+
+            const registerdPassword= await this.fetchPassword( user );
+            this.debug.register('registerdPassword',registerdPassword);
+
+            if( registerdPassword !== password )
+                throw new RegisterListnerError('Authentication Failed', 401)
+
+            await this.ping(url);
+
+            await this.persistUrlByUserName(uri, serviceName);
+        } catch (error) {
+            console.error('[ REGISTER URL ERROR ]',new Date().toISOString(), error)
+            throw(error) 
+        }
         
-        this.debug.register('serviceName', new RegistringServiceName(serviceName).serviceName);
-        const {user, password}= this.getAuthToken( authToken );
-
-        const url= this.getUrl(uri);
-
-        const registerdPassword= await this.fetchPassword( user );
-        this.debug.register('registerdPassword',registerdPassword);
-
-        if( registerdPassword !== password )
-            throw new RegisterListnerError('Authentication Failed', 401)
-
-        await this.ping(url);
-
-        await this.persistUrlByUserName(uri, serviceName);
         
     }
 

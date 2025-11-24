@@ -1,0 +1,270 @@
+#!/usr/bin/env node
+
+const httpServer= require('http').createServer();
+
+const port = process.argv[2];
+
+const ignoringFiles= [ 'simulate', 'simulate.js', 'README.md' ];
+
+if(port == undefined)
+    throw "USAGE: node httpserver.js <PORT>";
+
+httpServer.maxConnections= 1000;
+
+httpServer.timeout= 130000;
+
+httpServer.on ('error', (e) => {
+
+    console.log ({
+        ERROR: e,
+    });
+
+})
+
+httpServer.on ('request', clientRequestHandler);
+
+httpServer.on ('listening', () => {
+
+    console.log('\n######################################################################');
+    console.log('#                                                                    #');
+    console.log('#  SIMULATOR:                                                        #');
+    console.log('#                                                                    #');
+    console.log('#__USAGE_____________________________________________________________#');
+    console.log('#                                                                    #');
+    console.log('#  Add an endpoint: create a dot-separated file next to this script  #');
+    console.log('#  with one of the extensions .json, .xml, or .txt.                  #');
+    console.log('#                                                                    #');
+    console.log(`#  Example: 'users.list.json' → GET /users/list                      #`);
+    console.log('#                                                                    #');
+    console.log('#__IGNORED FILES:____________________________________________________#');
+    console.log('#                                                                    #');
+    ignoringFiles.forEach(
+        file => {
+            console.log('#      - '+ file + ' '.repeat( 60-file.length )+'#')
+        }
+    )
+    console.log('#                                                                    #');
+    console.log('######################################################################');
+
+    console.log('\n# Simulator Is Running. B-D');
+    console.log('\n    curl http://%s:%s\n', '0.0.0.0', port);
+
+});
+
+
+httpServer.on ('connection', () => {
+    
+    console.log ('# Connection Established');
+
+});
+
+httpServer.on ('timeout', (clientSocket) => {
+    
+    console.log ({
+        ERROR: "Timedout Occured Between Client And Server"
+    });
+    
+    clientSocket.destroy();
+
+});
+
+httpServer.on ('clientError', (err, socket) => {
+
+    console.log ({
+        ClientError : err
+    });
+    
+    socket.end('HTTP/1.1 400 Bad Request');
+
+});
+
+httpServer.listen(port, '0.0.0.0', 300);
+
+function clientRequestHandler (_ClientRequest_, _ClientResponse_) {
+
+    console.log('# CLIENT METHOD: ',_ClientRequest_.method);
+
+    console.log('# CLIENT URL: ',_ClientRequest_.url);
+
+    let chunk ='';
+
+    _ClientRequest_
+    .on ('data', (ClientData) => {
+        
+        readingClientData(ClientData);
+    
+    })
+    .on ('end', () => {
+
+        console.log('# DATA FROM CLIENT: ',chunk);
+
+        responseToClient(_ClientRequest_, _ClientResponse_);
+
+        console.log('___________________________________________________\n');
+
+    })
+    .on ('error', (e) => {
+
+        console.log ('# ERROR ON READING STREAM [FUNCTION : clientRequestHandler] ERROR :', e);
+
+        _ClientRequest_.destroy ();
+
+    });
+
+
+    function readingClientData (ClientData) {
+
+        chunk += ClientData;
+
+    }
+
+    function responseToClient(req, res) {
+
+        let message = '';
+
+        if( isValidEndpoint( req.url ) ){
+
+            const fileName= endpointToFileName( req.url );
+
+            const [jsonFile, xmlFile, textFile]= ['.json', '.xml', '.txt']
+            .map( extension => fileName+extension );
+
+            if( getAllValidFiles().includes( jsonFile ) ){
+
+                message= getResponseData( jsonFile );
+
+                res.writeHead(200, {
+                    'Content-Type': 'application/json',
+                    'Connection'  : 'close'
+                });
+
+            }
+
+            if( getAllValidFiles().includes( xmlFile ) ){
+
+                message= getResponseData( xmlFile );
+
+                res.writeHead(200, {
+                    'Content-Type': 'application/xml',
+                    'Connection'  : 'close'
+                });
+
+            }
+
+            if( getAllValidFiles().includes( textFile ) ){
+
+                message= getResponseData( textFile );
+
+                res.writeHead(200, {
+                    'Content-Type': 'text/plain',
+                    'Connection'  : 'close'
+                });
+
+            }
+
+            res.write( message );
+
+            res.end();
+
+        }
+        
+        else if( [ '', '/' ].includes( req.url ) ){
+
+            res.writeHead(200, {
+                'Content-Type': 'text/plain',
+                'Connection'  : 'close'
+            });
+
+            res.write( getAllUrl().join('\n') );
+
+            res.end();
+
+        } 
+        else {
+
+            message = '{"Error":"Web Service Not Found"}';
+
+            console.log('# RESPONSE TO CLIENT: ', JSON.parse(message));
+
+            res.writeHead(404, {
+                'Content-Type': 'application/json',
+                'Connection'  : 'close'
+            });
+
+            res.write( message );
+
+            res.end();
+        }
+
+    }
+
+}
+
+const fs= require('fs');
+
+function unImportantFiles( file ){
+
+    return !ignoringFiles.includes( file );
+}
+
+function fileType(file=String()){
+
+    return file.split('.').slice(-1)[0];
+}
+
+function isValidFileType(file=String()){
+
+    const validExtensions= ['json', 'xml', 'txt'];
+
+    return validExtensions.includes( fileType( file ) );
+}
+
+function fileName(file=String()){
+
+    return file
+    .split('.')
+    .slice(0, -1)
+    .join('.');
+}
+
+function fileToEndpoint(fileName=String()){
+
+    return '/'+fileName.split('.').join('/');
+}
+
+function getAllValidFiles(){
+
+    return fs
+    .readdirSync( __dirname )
+    .filter( unImportantFiles )
+    .filter( isValidFileType );
+}
+
+function isValidEndpoint(endpoint=String()){
+
+    return getAllValidFiles()
+    .map( fileName )
+    .map( fileToEndpoint )
+    .includes( endpoint );
+}
+
+function getAllUrl(){
+
+    return getAllValidFiles()
+    .map( fileName )
+    .map( fileToEndpoint )
+    .map( endpoint => 'curl http://0.0.0.0:'+port+endpoint );
+}
+
+function endpointToFileName( endpoint=String() ){
+
+    return endpoint
+    .slice(1)
+    .split('/')
+    .join('.');
+}
+
+function getResponseData( file ){
+
+    return fs.readFileSync( __dirname+'/'+file, 'utf-8' );
+}
