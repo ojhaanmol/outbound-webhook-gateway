@@ -35,7 +35,7 @@ class RegisterListner{
 
             await this.persistUrlByUserName(uri, serviceName);
         } catch (error) {
-            console.error('[ REGISTER URL ERROR ]',new Date().toISOString(), error)
+            // console.error('[ REGISTER URL ERROR ]',new Date().toISOString(), error)
             throw(error) 
         }
         
