@@ -1,6 +1,6 @@
 {
   "name": "zoho-outbound-webhook",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "main": "dist",
   "scripts": {
     "test": "jest ./dist/core/*.test.js ;jest ./dist/usecase/*.test.js",
