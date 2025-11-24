@@ -183,6 +183,6 @@ sequenceDiagram
     DS-->>FU: response (ignored/optional)
 
     FU-->>HC: success or failure info
-    HC-->>WP: HTTP 2xx or 4xx/5xx
+    HC-->>WP: HTTP 2xx
 
 ```
